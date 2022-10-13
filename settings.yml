@@ -1,0 +1,36 @@
+posthog_write_key:
+  default: ""
+  description: "The write-only for your Posthog instance"
+posthog_api_host:
+  default: "app.posthog.com"
+  description: "The Posthog API host to send events to. Ensure you update “extend_content_security_policy” if you change this value"
+track_users:
+  default: true
+  description: "Call the Posthog identify function when a user logs in or refreshes the site"
+track_by_external_id:
+  default: false
+  description: "For sites with SSO enabled, track users by their external_id instead of by their Discourse id"
+include_user_email:
+  default: false
+  description: "Include user's email address in identify payload"
+track_page:
+  default: false
+  description: "Track page visits by page type (tracks the latest, categories, category, tags, and topic pages)"
+track_topic_creation:
+  default: false
+  description: "Track topic creation"
+track_post_creation:
+  default: false
+  description: "Track post creation"
+track_likes:
+  default: false
+  description: "Track likes"
+track_flags:
+  default: false
+  description: "Track flags"
+track_bookmarks:
+  default: false
+  description: "Track bookmarks"
+extend_content_security_policy:
+  type: list
+  default: "script_src: https://app.posthog.com/static/array.js"

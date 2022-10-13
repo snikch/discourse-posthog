@@ -1,0 +1,166 @@
+<script type="text/discourse-plugin" version="0.1">
+    // Posthog loader script.
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+
+    // Various configuration values.
+    const defaults = {}
+    let referrer
+    switch (true) {
+        case navigator.userAgent.match(/(iPhone|iPod|iPad)/):
+            defaults['platform'] = 'iOS'
+        case navigator.userAgent.match(/(Android)/):
+            defaults['platform'] = 'Android'
+        default:
+            defaults['platform'] = 'Web'
+    }
+
+    function capture(event, properties={}) {
+        posthog.capture(event, {...defaults, ...properties})
+    }
+
+    function pageview(properties={}) {
+        capture('$pageview', properties)
+    }
+
+    function pageDidChange(container, details) {
+        const model = container.lookup(`route:${details.currentRouteName}`).currentModel;
+        switch (details.currentRouteName) {
+            case "discovery.latest":
+            case "discovery.categories":
+                pageview({referrer: referrer});
+                break;
+            case "discovery.parentCategory":
+            case "discovery.category":
+                if (model && model.category) {
+                    pageview({referrer: referrer, category: model.category.name});
+                }
+                break;
+            case "tags.show":
+            case "tags.showCategory":
+                if (model && model.id) {
+                    pageview({referrer: referrer, tag: model.id});
+                }
+                break;
+            case "topic.fromParams":
+            case "topic.fromParamsNear":
+                if (details.title) {
+                    pageview({referrer: referrer, topic: details.title});
+                }
+        }
+        referrer = window.location.href;
+    }
+
+
+    function loaded() {
+        const currentUser = api.getCurrentUser()
+        if (!settings.track_users || !currentUser) {
+            return
+        }
+        api.container.lookup('store:main').find('user', currentUser.username).then((user) => {
+            const userId = settings.track_by_external_id && user.external_id ? user.external_id : user.id;
+            if (settings.include_user_email) {
+                posthog.identify(userId, { email: user.email })
+            } else {
+                posthog.identify(userId)
+            }
+        })
+
+
+        if (settings.track_page) {
+            api.onAppEvent("page:changed", details => { pageDidChange(api.container, details) })
+        }
+
+        if (settings.track_topic_creation) {
+            api.onAppEvent("topic:created", (post, composerModel) => {
+                if (post) {
+                    capture("Topic Created", {
+                        topic_id: post.topic_id,
+                        topic_title: post.title,
+                        category_id: composerModel.get("category.id"),
+                        category_name: composerModel.get("category.name"),
+                    });
+                }
+            });
+        }
+
+        if (settings.track_post_creation) {
+            api.onAppEvent("post:created", post => {
+                if (post) {
+                    capture("Post Created", {
+                        post_id: post.id,
+                        topic_id: post.get("topic.id"),
+                        topic_title: post.get("topic.title"),
+                        category_id: post.get("topic.category.id"),
+                        category_name: post.get("topic.category.name"),
+                    });
+                }
+            });
+        }
+
+        if (settings.track_likes) {
+            api.onAppEvent("page:like-toggled", (post, likeAction) => {
+                let topic = post.topic;
+                if (post && topic && likeAction && likeAction.acted) {
+                    capture("Like", {
+                        topic_id: topic.id,
+                        topic_title: topic.title,
+                        category_id: topic.get("category.id"),
+                        category_name: topic.get("category.name"),
+                        post_id: post.id
+                    });
+                }
+            });
+        }
+
+        if (settings.track_bookmarks) {
+            api.onAppEvent("page:bookmark-post-toggled", post => {
+                let topic = post.topic;
+                if (post && post.bookmarked && topic) {
+                    capture(
+                        post.post_number === 1 ? "Topic Bookmarked" : "Post Bookmarked",
+                        {
+                            topic_id: topic.id,
+                            topic_title: topic.title,
+                            category_id: topic.get("category.id"),
+                            category_name: topic.get("category.name"),
+                            post_id: post.post_number === 1 ? null : post.id
+                        }
+                    );
+                }
+            });
+        }
+
+        if (settings.track_flags) {
+            api.onAppEvent("post:flag-created", (post, postAction) => {
+                if (post && postAction) {
+                    capture("Flag", {
+                        post_id: post.id,
+                        topic_id: post.topic_id,
+                        topic_title: post.get("topic.title"),
+                        flag_option: postAction.get("actionType.name")
+                    });
+                }
+            });
+
+            api.onAppEvent("topic:flag-created", (post, postAction) => {
+                if (post && postAction) {
+                    capture("Flag", {
+                        post_id: post.topic_id,
+                        topic_title: post.get("topic.title"),
+                        category_id: post.get("topic.category.id"),
+                        category_name: post.get("topic.category.name"),
+                        flag_option: postAction.get("actionType.name")
+                    });
+                }
+            });
+        }
+    }
+
+    // Initiate Posthog.
+    posthog.init(settings.posthog_write_key, {
+        api_host: 'https://'+settings.posthog_api_host,
+        autocapture: false,
+        capture_pageview: false,
+        loaded,
+    })
+</script>

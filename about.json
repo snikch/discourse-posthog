@@ -1,0 +1,7 @@
+{
+    "name": "discourse-theme-component-posthog",
+    "about_url": "https://github.com/snikch/discourse-posthog",
+    "license_url": "https://github.com/snikch/discourse-posthog/blob/main/LICENSE",
+    "component": true,
+    "assets": {}
+}
