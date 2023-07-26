@@ -163,4 +163,9 @@
         capture_pageview: false,
         loaded,
     })
+    try {
+        posthog.register(JSON.parse(settings.register_properties))
+    } catch(e) {
+        console.error(`Failed to run posthog.register: ${e.message}`)
+    }
 </script>

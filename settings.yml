@@ -34,3 +34,10 @@ track_bookmarks:
 extend_content_security_policy:
   type: list
   default: "script_src: https://app.posthog.com/static/array.js"
+register_properties:
+  default: "{}"
+  description: "Properties to be passed to `posthog.register` after init. Must be a valid JSON object."
+  json_schema: '{
+    "type": "object",
+    "additionalProperties": true
+    }'
